@@ -32,6 +32,12 @@ do(State) ->
     DepsDir = rebar_dir:deps_dir(State),
     VendorDir = filename:join(rebar_dir:root_dir(State), "deps"),
     filelib:ensure_dir(filename:join([VendorDir, "dummy.beam"])),
+
+    PluginDeps = rebar_state:all_plugin_deps(State),
+    PluginDir = rebar_dir:plugins_dir(State),
+    PluginVendorDir = filename:join(rebar_dir:root_dir(State), "plugin_deps"),
+    filelib:ensure_dir(filename:join([PluginVendorDir, "dummy.beam"])),
+
     %% clean deps to ensure that no compile code is included
     clean_all_deps(State),
     %% zip all dependencies in the /deps directory
@@ -48,6 +54,21 @@ do(State) ->
         %% create zip if doesn't exist
         create_zip_if_not_exist(DepsDir, Filepath, Name)
     end || Dep <- AllDeps, not(rebar_app_info:is_checkout(Dep))],
+
+    %% zip all plugin dependencies in the /plugin_deps directory
+    rebar_api:info("Vendoring plugin dependencies...", []),
+    [begin
+    %% get info
+        Name = binary_to_list(rebar_app_info:name(Dep)),
+        Vsn = get_vsn(Dep, State),
+        %% prepare filename
+        Filename = iolist_to_binary([Name, "-", Vsn, ".zip"]),
+        Filepath = binary_to_list(filename:join([PluginVendorDir, Filename])),
+        %% purge other versions if they exist
+        purge_other_versions(PluginVendorDir, Filepath, Name),
+        %% create zip if doesn't exist
+        create_zip_if_not_exist(PluginDir, Filepath, Name)
+     end || Dep <- PluginDeps, not(rebar_app_info:is_checkout(Dep))],
     %% return
     {ok, State}.
 
@@ -88,5 +109,14 @@ create_zip_if_not_exist(DepsDir, Filepath, Name) ->
         false ->
             %% create zip   ===>
             rebar_api:info("   + ~s", [filename:basename(Filepath, ".zip")]),
-            {ok, _} = zip:create(Filepath, [Name], [{cwd, DepsDir}])
+            TmpDir = rebar_file_utils:system_tmpdir([integer_to_list(erlang:phash2(erlang:make_ref()))]),
+            try
+                rebar_file_utils:reset_dir(TmpDir),
+                rebar_file_utils:cp_r([filename:join(DepsDir, Name)], TmpDir),
+                rebar_file_utils:rm_rf(filename:join([TmpDir, Name, "ebin"])),
+                rebar_file_utils:rm_rf(filename:join([TmpDir, Name, ".rebar"])),
+                {ok, _} = zip:create(Filepath, [Name], [{cwd, TmpDir}])
+            after
+                rebar_file_utils:rm_rf(TmpDir)
+            end
     end.

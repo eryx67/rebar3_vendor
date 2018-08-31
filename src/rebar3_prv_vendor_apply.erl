@@ -31,15 +31,25 @@ do(State) ->
     %% init
     DepsDir = rebar_dir:deps_dir(State),
     VendorDir = filename:join(rebar_dir:root_dir(State), "deps"),
-    %% empty lib directory
-    rebar_file_utils:rm_rf(DepsDir),
     filelib:ensure_dir(filename:join(DepsDir, "dummy.beam")),
+
+    PluginDir = rebar_dir:plugins_dir(State),
+    PluginVendorDir = filename:join(rebar_dir:root_dir(State), "plugin_deps"),
+    filelib:ensure_dir(filename:join(PluginDir, "dummy.beam")),
     %% extract
     [begin
-        Filename = filename:basename(Filepath, ".zip"),
-        rebar_api:info("Extracting ~s", [Filename]),
-        zip:extract(Filepath, [{cwd, DepsDir}])
+         Filename = filename:basename(Filepath, ".zip"),
+         rebar_api:info("Extracting ~s", [Filename]),
+         rebar_file_utils:rm_rf(filename:join(DepsDir, Filename)),
+         zip:extract(Filepath, [{cwd, DepsDir}])
     end || Filepath <- filelib:wildcard(filename:join(VendorDir, "*.zip"))],
+
+    [begin
+         Filename = filename:basename(Filepath, ".zip"),
+         rebar_api:info("Extracting plugin dependency ~s", [Filename]),
+         rebar_file_utils:rm_rf(filename:join(PluginDir, Filename)),
+         zip:extract(Filepath, [{cwd, PluginDir}])
+    end || Filepath <- filelib:wildcard(filename:join(PluginVendorDir, "*.zip"))],
     {ok, State}.
 
 -spec format_error(any()) -> iolist().
