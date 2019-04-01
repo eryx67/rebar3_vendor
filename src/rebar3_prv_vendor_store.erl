@@ -86,9 +86,8 @@ clean_all_deps(State) ->
 
 -spec get_vsn(rebar_app_info:t(), rebar_state:t()) -> binary() | string().
 get_vsn(Dep, State) ->
-    Dir = rebar_app_info:dir(Dep),
     Source = rebar_app_info:source(Dep),
-    case rebar_fetch:lock_source(Dir, Source, State) of
+    case rebar_fetch:lock_source(Source, State) of
         {git, _, {ref, Ref}} -> Ref;
         {pkg, _, Vsn0} -> Vsn0;
         {pkg, _, Vsn0, _} -> Vsn0
