@@ -87,11 +87,10 @@ clean_all_deps(State) ->
 -spec get_vsn(rebar_app_info:t() | reabar_pkg_resource:package(), rebar_state:t()) -> binary() | string().
 get_vsn(Dep, State) ->
     Lock = try
-               %% Source = rebar_app_info:source(Dep),
                rebar_fetch:lock_source(Dep, State)
            catch
                _:E:T ->
-                   rebar_api:error("get_vsn: ~p ~p", [E, T]),
+                   rebar_api:info("get_vsn: ~p ~p", [E, T]),
                    Dep
            end,
     case Lock of
